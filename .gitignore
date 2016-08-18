@@ -1,0 +1,4 @@
+.DS_Store
+tmp
+*.sqlite3
+vendor/cache

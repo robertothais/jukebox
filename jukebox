@@ -1,0 +1,12 @@
+#!/usr/bin/env ruby
+
+require File.join(File.dirname(__FILE__), 'environment')
+
+Celluloid::Supervision::Configuration.define([
+  { type: Jukebox,         as: :jukebox },
+]).deploy
+
+puts "Jukebox".color(:green) + " is up and ready to rock & roll"
+puts "Starting " "control server".color(:yellow) + " on port #{ENV['CONTROL_PORT']}"
+
+Jukebox::API.run!

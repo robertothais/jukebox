@@ -1,0 +1,138 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+}
+
+.add-button {
+  margin-left: 15px;
+}
+
+@media (min-width: 992px) {
+  .add-button {
+    margin-left: 0
+  }
+}
+
+.modal-body .form-group {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.video-thumbnail {
+  width: 120px;
+  height: 90px;
+}
+
+.thumbnail-overlay {
+  opacity: 0.3;
+  width: 120px;
+  height: 90px;
+  background: black;
+}
+
+.modal-body .table {
+  margin-top: 20px;
+  margin-bottom: 5px;
+  border: 1px dashed lightGray;
+}
+
+.modal-body table tr td {
+  padding-top: 0px !important
+}
+
+.video-thumbnail-col {
+  width: 120px;
+}
+
+.votes-col {
+  width: 40px;
+}
+
+.table h4 {
+  margin-left: 20px;
+}
+
+.table tr:not(:first-child) td {
+  padding-top:10px;
+}
+
+.table td {
+  position: relative;
+}
+
+.thumbnail-overlay-container {
+  position: absolute;
+  cursor: pointer;
+  left: 0
+}
+
+.thumbnail-overlay .glyphicon {
+  line-height: 90px;
+  text-align: center;
+  width: 120px;
+  font-size: 20px;
+  color: white;
+}
+
+iframe {
+  max-width: 459px;
+  width: 100%;
+  margin: auto;
+  display: block;
+}
+
+.noembed-meta-info {
+  margin: auto;
+  margin-top: 10px;
+}
+
+html {
+  position: relative;
+  min-height: 100%;
+}
+body {
+  /* Margin bottom by footer height */
+  margin-bottom: 60px;
+}
+.footer {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  /* Set the fixed height of the footer here */
+  height: 60px;
+  background-color: #f5f5f5;
+}
+
+footer p {
+  margin-top: 23px;
+}
+
+.votes {
+  text-align: right;
+  color: #aaa;
+}
+
+.votes h3 {
+  margin-top: 3px;
+  margin-bottom: 3px
+}
+
+.votes.none i {
+  cursor: pointer;
+}
+
+.votes:not(.none) i {
+  color: #ddd;
+}
+
+.votes.up .glyphicon-triangle-top{
+  color: #5cb85c;
+}
+
+.votes.down .glyphicon-triangle-bottom {
+  color: #d9534f;
+}
+.modal-body .votes {
+  display: none;
+}
