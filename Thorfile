@@ -114,6 +114,8 @@ class Library < Thor
 end
 
 class Jukebox < Thor
+  include Commands
+  include Thor::Actions
 
   desc 'logs', 'Tails the jukebox process logs'
   def logs
