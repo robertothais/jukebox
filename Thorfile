@@ -125,7 +125,7 @@ class Jukebox < Thor
     put jukebox_url("/play/song/#{id}")
   end
 
-  desc 'song', 'Plays song on running jukebox server in raspberry pi'
+  desc 'stop', 'Plays song on running jukebox server in raspberry pi'
   def stop(id)
     put jukebox_url("/stop")
   end
