@@ -68,7 +68,7 @@ class Pi < Thor
       invoke :reboot
     end
 
-    desc 'adhoc', 'Set raspberry pi on wifi network mode'
+    desc 'adhoc', 'Set raspberry pi on ad-hoc network mode'
     def adhoc
       run remotely(copy_command('/etc/network/interfaces.adhoc', '/etc/network/interfaces'))
       invoke :reboot

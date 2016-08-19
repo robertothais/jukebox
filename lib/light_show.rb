@@ -3,7 +3,7 @@ class LightShow
 
   CALIBRATION_OFFSET = 0.005
 
-  attr_accessor :position, :palette
+  attr_accessor :palette
   attr_reader   :started_at
 
   def initialize(schedule, palette, port)
@@ -13,7 +13,7 @@ class LightShow
   end
 
   def start
-    @started_at = Time.now
+    self.position = 0
     until done? do
       stream
     end
@@ -26,8 +26,8 @@ class LightShow
     end
     # Check that catch-up didn't throw away all events
     return if done?
-    next_event_time = @started_at + @schedule.first[:position].to_f
-    if Time.now >= next_event_time - CALIBRATION_OFFSET
+    next_event_position = @schedule.first[:position].to_f
+    if Time.now - @position_set_at >= next_event_position - @position
       color = @palette[@schedule.first[:color] % @palette.length]
       payload = [color].pack("H*")
       #payload = 3.times.map { rand(255) }.pack('C3')
@@ -36,6 +36,12 @@ class LightShow
     end
     sleep 0.01
   end
+
+  def position=(position)
+    @position = position
+    @position_set_at = Time.now
+  end
+
 
   def done?
     @schedule.empty?
