@@ -1,123 +1,288 @@
+#include <StandardCplusplus.h>
+#include <vector>
 #include <Adafruit_NeoPixel.h>
 
 #define PIN 6
-#define lightCount 60
-#define INPUT_SIZE 3
+#define INPUT_SIZE 200
+//std::vector< std::vector<uint32_t> > palettes;
+const int segments = 1;
+const int segmentSize = 60;
+float offset = 0.0;
+float lastBeatTransition = 1.0; // percentage from 0 to 100% - pulse with the beat
+float lastPaletteTransition = 1.0; // percentage from 0 to 100% - interpolate between palettes
+float lastPaletteFadeDown = 1.0; // percentage from 0 to 100% - brighten and fade after palette transition
+int thisPalette = 0; // index
+int lastPalette = -1;
+float activeMode = 0.0;
+float activeModeTransitionRate = 0.02;
+float ambientModePulseCycle = 700;
 
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(lightCount, PIN, NEO_GRB + NEO_KHZ800);
+int i = 0;
 
-const int maxChange = 2;
-const float velocity = 10.0; // in leds per second
-const int wait = 3; // in milliseconds
-const int maxBeats = 15;
-const int numSlots = strip.numPixels() / 2;
+const int numPalettes = 6;
+const int paletteSize = 5;
+const uint8_t palettes[numPalettes][paletteSize][3] = { 
+   { //vive
+     { 49,51,204 },
+     { 53,162,255},
+     { 233,233,255 },
+     { 255,164,81 },
+     { 204,76,13 }
+   },
+   { //gecko
+     { 0,171,255 },
+     { 0,232,193 },
+     { 0,255,78 },
+     { 62,232,0 },
+     { 233,255,0 }
+   },
+   { //richard
+     { 255,202,0 },
+     { 232,141,4 },
+     { 255,95,14 },
+     { 232,24,10 },
+     { 255,4,184 }
+   },
+   { //drank
+    { 255,9,167 },
+    { 161,10,232 },
+    { 62,24,255 },
+    { 18,91,232 },
+    { 11,216,255 }
+   },
+  { //moorhead
+    { 255,255,227 },
+    { 162,242,255 },
+    { 24,21,204 },
+    { 204,0,58 },
+    { 255,171,123 }
+  },
+  { //altj
+    { 254,255,17 },
+    { 232,142,12 },
+    { 255,0,0 },
+    { 108,12,232 },
+    { 13,170,255 }
+  }
+};
 
-float beats[maxBeats] = {};
-int beatRepeats[maxBeats] = {};
-uint32_t beatColors[maxBeats] = {};
-uint32_t oldBeatColor;
-int mostRecentBeat = 0;
+float baseBrightness = 0.3;
+float maxBeatBrightness = 0.7;
+float maxPaletteTransitionBrightness = 1.0;
+float rampUp = 0.12; // percentage of pulse to get to maximum brightness
+double offsetProgressRate = 0.005;
+double beatTransitionRate = 0.04;
+double paletteTransitionRate = 0.08;
+double paletteFadeDownRate = 0.08;
+float activeTransHead;
+float activeTransIntensity;
+float activeTransTrailLength;
+float ambientIntensity;
 
-void setTargetColor(uint32_t targetColor) {
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(segments * segmentSize, PIN, NEO_GRB + NEO_KHZ800);
 
-  oldBeatColor = beatColors[mostRecentBeat];
+void processCommands() {
+  byte size = Serial.read();
 
-  int currentRepetitionCount = beatRepeats[mostRecentBeat];
+  if( size == 'i' ) {
+    activeMode = 0.0;
+    return;
+  }
+  else if( size == 'a' ) {
+    activeMode = 0.001;
+    return;
+  }
+  
+  int newPalette = size % numPalettes;
 
-  mostRecentBeat = ( mostRecentBeat + 1 ) % maxBeats;
-
-  // set beat location and beatcolors
-  beats[mostRecentBeat] = 0;
-  beatColors[mostRecentBeat] = targetColor;
-
-  // track how many times this color has repeated
-  if(beatColors[mostRecentBeat] == oldBeatColor) {
-    beatRepeats[mostRecentBeat] = currentRepetitionCount + 1;
+  if( newPalette == thisPalette ) {
+    lastBeatTransition = 0.0;
   }
   else {
-    beatRepeats[mostRecentBeat] = 0;
+    lastPalette = thisPalette;
+    thisPalette = newPalette % numPalettes;
+    lastPaletteTransition = 0.0;
   }
 }
 
+void setRowColor(int k, uint32_t pixelColor) {
+  for( int segment = 0; segment < segments; segment++ ) {
+    if ( segment % 2 == 0 ) {
+      strip.setPixelColor(segment * segmentSize + k,pixelColor);
+    } else {
+      strip.setPixelColor(segment * segmentSize + segmentSize - 1 - k,pixelColor);
+    }
+  }
+}
 
-void receiveBeat() {
-  uint8_t raw[INPUT_SIZE];
+void setPalette(int paletteIdx, float offsetPct, float beatTransition, int prevPalette, float prevPaletteTransition, float prevPaletteFadeDown) {
+  int colorSpacing = floor(segmentSize / paletteSize );
+  float offsetSlots = offsetPct * segmentSize;
 
-  int amount = Serial.readBytes(raw, INPUT_SIZE);
+  float brightness;
+//  float whiteness;
+//  float baseWhiteness = 0.0;
 
-  uint32_t red = (256L * raw[0]) * 256L;
-  uint16_t green = (256 * raw[1]);
-  uint8_t  blue  = raw[2];
+  // calculate brightness
+  if ( prevPaletteTransition < 1.0 ) {
+    brightness = ( baseBrightness + ( maxPaletteTransitionBrightness - baseBrightness ) * prevPaletteTransition );
+  }
+  else if ( prevPaletteFadeDown < 1.0 ) {
+    brightness = ( baseBrightness + ( maxPaletteTransitionBrightness - baseBrightness ) * ( maxPaletteTransitionBrightness - prevPaletteFadeDown ) );
+  }
+  else if ( beatTransition < rampUp ) {
+    brightness = ( maxBeatBrightness - baseBrightness ) / rampUp * beatTransition + baseBrightness;
+  }
+  else if ( beatTransition < 1.0 ) {
+    brightness = ( baseBrightness - maxBeatBrightness ) / ( 1 - rampUp ) * beatTransition + ( maxBeatBrightness - rampUp * baseBrightness ) / ( 1 - rampUp );
+  }
+  else {
+    brightness = baseBrightness;
+  }
 
-  uint32_t fullColor = red+green+blue;
+//  Serial.println(brightness);
 
-  setTargetColor(fullColor);
+//  uint8_t white = std::min(255 * (brightness + 0.1),255.0);
+//
+//  // calculate whiteness
+//  if( beatTransition < rampUp ) {
+//    // go from base level whiteness to 100% for { 0 < beatTransition < rampUp }
+//    whiteness = ( 1.0 - baseWhiteness ) / rampUp * beatTransition + baseWhiteness;
+//  }
+//  else {
+//    // go from 100%  whiteness back to base level for { rampUp < beatTransition < 100% }
+//    whiteness = ( baseWhiteness - 1 ) / ( 1 - rampUp ) * beatTransition + ( 1 - rampUp * baseWhiteness ) / ( 1 - rampUp );
+//  }
+
+
+  int loc1, loc2;
+  uint8_t r1,g1,b1,r2,g2,b2,r,g,b,r1Prev,g1Prev,b1Prev,r2Prev,g2Prev,b2Prev,rPrev,gPrev,bPrev;
+  float interpPctGradient;
+  
+  float kOffset;
+  for( int k = 0; k < segmentSize; k++ ) {
+    kOffset = fmod(k + offsetSlots,segmentSize);
+    
+    loc1 = floor(kOffset / colorSpacing);
+    loc2 = floor(kOffset / colorSpacing) + 1;
+    r1 = palettes[paletteIdx][loc1 % paletteSize][0];
+    g1 = palettes[paletteIdx][loc1 % paletteSize][1];
+    b1 = palettes[paletteIdx][loc1 % paletteSize][2];
+    
+    r2 = palettes[paletteIdx][loc2 % paletteSize][0];
+    g2 = palettes[paletteIdx][loc2 % paletteSize][1];
+    b2 = palettes[paletteIdx][loc2 % paletteSize][2];
+
+    // interpolate between palette colors on strip
+    interpPctGradient = ( kOffset - floor( kOffset / colorSpacing ) * colorSpacing ) / colorSpacing;
+    //    interpPctGradient = -0.5*cos(interpPctGradient * PI) + 0.5;  // sinusoidal interpolation
+
+    // calculate base colors along strip
+    r = ((r2 - r1)*interpPctGradient + r1)*brightness;
+    g = ((g2 - g1)*interpPctGradient + g1)*brightness;
+    b = ((b2 - b1)*interpPctGradient + b1)*brightness;
+
+//    // apply whiteness for pulsing beat
+//    r = ( white - r ) * whiteness + r;
+//    g = ( white - g ) * whiteness + g;
+//    b = ( white - b ) * whiteness + b;
+
+    // mix in new palette if we're in the midst of a palette transition
+    if( prevPaletteTransition < 1.0 ) {
+      r1Prev = palettes[prevPalette][loc1 % paletteSize][0];
+      g1Prev = palettes[prevPalette][loc1 % paletteSize][1];
+      b1Prev = palettes[prevPalette][loc1 % paletteSize][2];
+
+      r2Prev = palettes[prevPalette][loc2 % paletteSize][0];
+      g2Prev = palettes[prevPalette][loc2 % paletteSize][1];
+      b2Prev = palettes[prevPalette][loc2 % paletteSize][2];
+      
+      rPrev = ((r2Prev - r1Prev)*interpPctGradient + r1Prev)*brightness;
+      gPrev = ((g2Prev - g1Prev)*interpPctGradient + g1Prev)*brightness;
+      bPrev = ((b2Prev - b1Prev)*interpPctGradient + b1Prev)*brightness;
+
+      r = ( r - rPrev ) * prevPaletteTransition + rPrev;
+      g = ( g - gPrev ) * prevPaletteTransition + gPrev;
+      b = ( b - bPrev ) * prevPaletteTransition + bPrev;
+    }
+
+    // add in cool sweep effect if we're transitioning to active mode
+    if( activeMode < 1.0 ) {
+      activeTransTrailLength = 20.0;
+      activeTransHead = ( segmentSize + activeTransTrailLength ) * activeMode;
+    
+      if( k > activeTransHead ) {
+        r = 0;
+        g = 0;
+        b = 0;
+      }
+      else {
+        activeTransIntensity = std::max((20.0 - activeTransHead + k ) / 20.0,0.0);          
+
+        r = r+(255-r)*activeTransIntensity;
+        g = g+(255-g)*activeTransIntensity;
+        b = b+(255-b)*activeTransIntensity;
+      }
+    }
+    
+    setRowColor(k,strip.Color(r,g,b));
+  }
 }
 
 void setup() {
   Serial.begin(9600);
+
+  // set all pixels to off
   strip.begin();
-
-  for(int x = 0; x < lightCount; x++ ){
-    strip.setPixelColor(x, strip.Color(0,0,0));
+  for( int k = 0; k < strip.numPixels(); k++ ) {
+    strip.setPixelColor(k,strip.Color(0,0,0));
   }
-
-  strip.show(); // Initialize all pixels to 'off'
-}
-
-uint8_t splitColor (uint32_t c, char value) {
-  switch ( value ) {
-    case 'r': return (uint8_t)(c >> 16);
-    case 'g': return (uint8_t)(c >>  8);
-    case 'b': return (uint8_t)(c >>  0);
-    default:  return 0;
-  }
+  strip.show();
 }
 
 void loop() {
-
   // read in commands
   if (Serial.available() > 0) {
-    receiveBeat();
-  }
+    processCommands();
+  }  
 
-  // move the beats at specified velocity
-  for( int x = 0; x < maxBeats; x++ ) {
-    beats[x] += velocity * wait / 100.0;
-  }
-
-  // set colors on the strip
-  // start in the center and proceed outward
-  int currentBeatIndex = mostRecentBeat;
-
-  for( int k = 0; k < numSlots; k++ ) {
-    // choose the relevant beatindex based on the beat locations and current location on the strip
-    if( k > beats[currentBeatIndex] ) {
-      int newBeatIndex = ( currentBeatIndex - 1 + maxBeats ) % maxBeats;
-
-      if( newBeatIndex == mostRecentBeat ) {
-        break;
+  if( activeMode > 0 ) {
+    setPalette(thisPalette,offset,lastBeatTransition,lastPalette,lastPaletteTransition,lastPaletteFadeDown);
+    strip.show();
+  
+    // increment offset, and progress through beat and palette transitions
+    offset = fmod(offset + offsetProgressRate,1.0);
+  
+    if ( lastBeatTransition < 1.0 ) {
+      lastBeatTransition = std::min(lastBeatTransition + beatTransitionRate, 1.0 );
+    }
+  
+    if ( lastPaletteFadeDown < 1.0 ) {
+      lastPaletteFadeDown = std::min(lastPaletteFadeDown + paletteFadeDownRate, 1.0 ); 
+    }
+  
+    if ( lastPaletteTransition < 1.0 ) {
+      lastPaletteTransition = std::min( lastPaletteTransition + paletteTransitionRate, 1.0 );
+  
+      if( lastPaletteTransition == 1.0 ) {
+        lastPaletteFadeDown = 0.0;
       }
-
-      currentBeatIndex = newBeatIndex;
     }
 
-    // calculate intensity for the color at this pixel
-    float intrabeatTrailOff = constrain((25.0 - ( beats[currentBeatIndex] - k ))/25.0,0,1.0); // beat trails off after initial hit
-    float distanceTrailOff = constrain(0.8 * float(5 + numSlots - k)/float(numSlots),0.0,1.0); // intensity goes down with distance from center
-    float repetitionTrailOff = constrain(float((4.0 - beatRepeats[currentBeatIndex]) / 4.0),0.3,1.0); // lessen intensity for repeated chords.  puts more emphasis on chord changes
-
-    float intensity = intrabeatTrailOff * distanceTrailOff * repetitionTrailOff;
-
-    uint32_t c = beatColors[currentBeatIndex];
-
-    // set color based on the color for this beat and the intensity
-    // could probably be done in a bitwise fashion on the unified color
-    strip.setPixelColor(k + numSlots, (splitColor(c, 'r') * intensity), (splitColor(c, 'g') * intensity), (splitColor(c, 'b') * intensity));
-    strip.setPixelColor(numSlots - k, (splitColor(c, 'r') * intensity), (splitColor(c, 'g') * intensity), (splitColor(c, 'b') * intensity));
+    if( activeMode < 1.0 ) {
+      activeMode = std::min( activeMode + activeModeTransitionRate, float(1.0) );
+    }
   }
+  else {
+    // ambient mode  
+    ambientIntensity = cos((i % int(ambientModePulseCycle))/ambientModePulseCycle*2*PI)*0.5+0.5;
 
-  strip.show();
-
-  delay(wait);
+    for( int k = 0; k < segmentSize; k++ ) {
+      setRowColor(k,strip.Color(50*ambientIntensity,50*ambientIntensity,50*ambientIntensity));
+    }
+    strip.show();
+  }
+  
+  i+=1;
+  delay(1);
 }
