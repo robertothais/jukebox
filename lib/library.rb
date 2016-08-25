@@ -55,7 +55,8 @@ class Library
 
   def prune_records
     orphans = Song.where('key NOT IN (?)', keys)
-    orphans.each do |song|
+    incomplete = Song.need_processing
+    (orphans + incomplete).each do |song|
       song.destroy
       puts '[ ' + 'Removed'.color(:red) + ' ]' + " #{song.title || song.key}"
     end

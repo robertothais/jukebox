@@ -1,6 +1,12 @@
 # TODO (by 8/18)
 # Playlists
-# Buttons
+# Button lights
+# Figure out buttons getting stuck, fix same button.
+# Arduino code:
+# - Ambient + chord mode
+# - Chord mode starting from top
+# - Low mode/startup shwoosh
+# Event logging
 
 # Nice to haves
 # -------------
@@ -23,7 +29,7 @@ class Jukebox
 
   def initialize
     @player = Player.new_link
-    @button_panel = ButtonPanel.new_link
+    @button_panel = ButtonPanel.new_link if Machine.pi?
     @light_show_conductor = LightShowConductor.new_link
     subscribe 'song:pick_index', :on_play_index
     subscribe 'song:play', :on_play
@@ -32,12 +38,11 @@ class Jukebox
   end
 
   def on_play_index(e, index)
-
+    play(Song.find(Song.pluck(:id).sample))
   end
 
   def on_play(e, song_id)
     song = Song.find(song_id)
-    info "Will now play #{song.id}: #{song.title}"
     play(song)
   end
 
@@ -54,6 +59,7 @@ class Jukebox
   end
 
   def play(song)
+    info "Will now play #{song.id}: #{song.title}"
     @light_show_conductor.play(song)
     @player.play(song)
   end

@@ -48,7 +48,7 @@ class LightShow
   end
 
   def started?
-    !!@started_at
+    !!@position_set_at
   end
 
 end

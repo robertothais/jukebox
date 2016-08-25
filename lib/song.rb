@@ -4,7 +4,7 @@ class Song < ActiveRecord::Base
 
   validates :key, presence: true, uniqueness: true
 
-  scope :need_processing, -> { where('chords = ? OR title = ?', nil, nil, nil) }
+  scope :need_processing, -> { where('chords IS ? OR title IS ?', nil, nil) }
 
   before_destroy { delete_file! }
 

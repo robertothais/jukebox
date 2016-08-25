@@ -12,7 +12,7 @@ gem 'standalone_migrations', require: false
 gem 'sqlite3'
 gem 'video_info'
 gem 'dotenv'
-gem 'pi_piper', require: false
+gem 'pi_piper'
 gem 'youtube-dl.rb'
 gem 'sinatra'
 gem 'thin'
