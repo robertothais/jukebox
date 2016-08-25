@@ -25,7 +25,7 @@ class Jukebox::API < Sinatra::Base
     status 200
   end
 
-  put '/list' do
+  get '/list' do
     Song.all.to_json
   end
 

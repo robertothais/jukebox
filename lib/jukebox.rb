@@ -1,7 +1,7 @@
 # TODO (by 8/18)
 # Playlists
-# Button lights
-# Figure out buttons getting stuck, fix same button.
+# Shuffle (keep button on)
+# End song (off all buttons)
 
 # Nice to haves
 # -------------
@@ -39,6 +39,7 @@ class Jukebox
   end
 
   def on_player_complete(e)
+    # turn off all buttons
     info 'Playback complete'
     stop
   end
@@ -59,7 +60,7 @@ class Jukebox
   end
 
   def shuffle
-
+    # make sure to light up button
   end
 
   def play(song)

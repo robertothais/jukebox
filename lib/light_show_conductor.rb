@@ -83,12 +83,12 @@ class LightShowConductor
 
   def lights_to_low_mode
     info 'Setting lights to low mode'
-    @port.write('i')
+    @port.syswrite('i')
   end
 
   def lights_to_active_mode
     info 'Setting lights to active mode'
-    @port.write('a')
+    @port.syswrite('a')
   end
 
   def event_schedule_for(events)

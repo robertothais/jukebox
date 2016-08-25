@@ -26,7 +26,7 @@ class LightShow
     next_event_position = @schedule.first[:position].to_f
     if Time.now - @position_set_at >= next_event_position - @position
       payload = @schedule.first[:color]
-      @port.write(payload)
+      @port.syswrite(payload)
       @schedule.shift
     end
     sleep 0.01

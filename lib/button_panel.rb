@@ -24,8 +24,8 @@ class ButtonPanel
     subscribe 'button:up',   :on_button_up
     @buttons = BUTTONS.map.with_index { |r, i| r.map.with_index { |c, j| Button.new(c, i, j) } }.flatten
     @last_button_on = @buttons.detect(&:on?)
-    async.monitor
-    async.render
+    @monitor = future.monitor
+    @renderer = future.render
   end
 
   def monitor
@@ -61,6 +61,7 @@ class ButtonPanel
       if @last_button_on != button_on
         row_pins.each { |pin| pin.off }
         col_pins.each { |pin| pin.off }
+        @last_button_on = button_on
         next if button_on == nil
         col_pins.each_with_index do |pin, j|
           if button_on.column == j
@@ -76,7 +77,6 @@ class ButtonPanel
             pin.off
           end
         end
-        @last_button_on = button_on
       end
       sleep(0.01)
     end
@@ -84,7 +84,12 @@ class ButtonPanel
 
   def on_button_down(_, index)
     info "Button #{index} went down"
-    @buttons.detect { |b| b.index == index }.down
+    all_off!
+    button_with_index(index).down!
+  end
+
+  def all_off!
+    @buttons.each { |b| b.off! }
   end
 
   def on_button_up(_, index)
@@ -111,12 +116,20 @@ class ButtonPanel
   end
 
   def cleanup
+    info 'Cleaning up button panel'
+    all_off!
+    @renderer.terminate
+    @monitor.terminate
     release_pins
+  end
+
+  def button_with_index(index)
+    @buttons.detect { |b| b.index == index }
   end
 
   def release_pins
     info 'Releasing all pins'
-    ( BUTTON_PINS_ROW + BUTTON_PINS_COL ).each do |pin|
+    ( BUTTON_PINS_ROW + BUTTON_PINS_COL + LED_PINS_COL + LED_PINS_ROW ).each do |pin|
       `echo #{pin} >/sys/class/gpio/unexport`
     end
   end
