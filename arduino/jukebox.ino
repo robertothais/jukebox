@@ -6,11 +6,7 @@
 #define INPUT_SIZE 200
 //std::vector< std::vector<uint32_t> > palettes;
 const int segments = 6;
-<<<<<<< d45144657df347750cf01d9053278fa206402024
 const int segmentSize = 43;
-=======
-const int segmentSize = 43;  
->>>>>>> better ambient mode transitions
 float offset = 0.0;
 float lastBeatTransition = 1.0; // percentage from 0 to 100% - pulse with the beat
 float lastPaletteTransition = 1.0; // percentage from 0 to 100% - interpolate between palettes
