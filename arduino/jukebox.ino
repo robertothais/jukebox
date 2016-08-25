@@ -6,7 +6,11 @@
 #define INPUT_SIZE 200
 //std::vector< std::vector<uint32_t> > palettes;
 const int segments = 6;
+<<<<<<< d45144657df347750cf01d9053278fa206402024
 const int segmentSize = 43;
+=======
+const int segmentSize = 43;  
+>>>>>>> better ambient mode transitions
 float offset = 0.0;
 float lastBeatTransition = 1.0; // percentage from 0 to 100% - pulse with the beat
 float lastPaletteTransition = 1.0; // percentage from 0 to 100% - interpolate between palettes
@@ -15,7 +19,8 @@ int thisPalette = 0; // index
 int lastPalette = -1;
 float activeMode = 0.0;
 float activeModeTransitionRate = 0.02;
-float ambientModePulseCycle = 700;
+float ambientTransitionRate = 0.005;
+float ambientTransition = 0.0;
 
 int i = 0;
 
@@ -241,9 +246,11 @@ void setup() {
 
   // set all pixels to off
   strip.begin();
+  
   for( int k = 0; k < strip.numPixels(); k++ ) {
     strip.setPixelColor(k,strip.Color(0,0,0));
   }
+
   strip.show();
 }
 
@@ -281,13 +288,18 @@ void loop() {
     }
   }
   else {
-    // ambient mode
-    ambientIntensity = cos((i % int(ambientModePulseCycle))/ambientModePulseCycle*2*PI)*0.5+0.5;
+    // ambient mode  
+    ambientIntensity = cos(ambientTransition*2*PI)*0.5+0.5;
 
     for( int k = 0; k < segmentSize; k++ ) {
       setRowColor(k,strip.Color(50*ambientIntensity,50*ambientIntensity,50*ambientIntensity));
     }
     strip.show();
+
+    ambientTransition = ambientTransition + ambientTransitionRate;
+    if( ambientTransition > 1.0 ) {
+      ambientTransition = ambientTransition - 1.0;
+    }
   }
 
   i+=1;
