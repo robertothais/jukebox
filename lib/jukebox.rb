@@ -2,11 +2,6 @@
 # Playlists
 # Button lights
 # Figure out buttons getting stuck, fix same button.
-# Arduino code:
-# - Ambient + chord mode
-# - Chord mode starting from top
-# - Low mode/startup shwoosh
-# Event logging
 
 # Nice to haves
 # -------------
@@ -28,10 +23,12 @@ class Jukebox
   include Celluloid::Internals::Logger
 
   def initialize
+    info 'Initializing Jukebox'
     @player = Player.new_link
     @button_panel = ButtonPanel.new_link if Machine.pi?
     @light_show_conductor = LightShowConductor.new_link
     subscribe 'song:pick_index', :on_play_index
+    subscribe 'player:complete', :on_player_complete
     subscribe 'song:play', :on_play
     subscribe 'song:stop', :on_stop
     subscribe 'song:shuffle', :on_shuffle
@@ -41,31 +38,38 @@ class Jukebox
     play(Song.find(Song.pluck(:id).sample))
   end
 
+  def on_player_complete(e)
+    info 'Playback complete'
+    stop
+  end
+
+  def on_stop(e)
+    info 'Going to stop song'
+    stop
+  end
+
   def on_play(e, song_id)
     song = Song.find(song_id)
     play(song)
   end
 
   def on_shuffle(e)
+    info 'Going to shuffle'
     shuffle
   end
 
-  def on_stop(e)
-    stop
-  end
-
   def shuffle
-    info 'Evryday I\'m Shuffling!'
+
   end
 
   def play(song)
-    info "Will now play #{song.id}: #{song.title}"
-    @light_show_conductor.play(song)
-    @player.play(song)
+    info "Going to play #{song.id}: #{song.title}"
+    @player.stop
+    @light_show_conductor.play(song) { @player.play(song) }
   end
 
   def stop
     @player.stop
-    @light_show_conductor.stop
+    @light_show_conductor.stop(true)
   end
 end

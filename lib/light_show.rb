@@ -1,15 +1,12 @@
 class LightShow
   include Celluloid
 
-  CALIBRATION_OFFSET = 0.005
-
   attr_accessor :palette
   attr_reader   :started_at
 
-  def initialize(schedule, palette, port)
+  def initialize(schedule, port)
     @schedule, @port = schedule, port
     @position  = 0
-    @palette = palette
   end
 
   def start
@@ -28,9 +25,7 @@ class LightShow
     return if done?
     next_event_position = @schedule.first[:position].to_f
     if Time.now - @position_set_at >= next_event_position - @position
-      color = @palette[@schedule.first[:color] % @palette.length]
-      payload = [color].pack("H*")
-      #payload = 3.times.map { rand(255) }.pack('C3')
+      payload = @schedule.first[:color]
       @port.write(payload)
       @schedule.shift
     end

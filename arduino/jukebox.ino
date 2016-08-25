@@ -21,7 +21,7 @@ int i = 0;
 
 const int numPalettes = 6;
 const int paletteSize = 5;
-const uint8_t palettes[numPalettes][paletteSize][3] = { 
+const uint8_t palettes[numPalettes][paletteSize][3] = {
    { //vive
      { 49,51,204 },
      { 53,162,255},
@@ -66,13 +66,16 @@ const uint8_t palettes[numPalettes][paletteSize][3] = {
   }
 };
 
-float baseBrightness = 0.3;
+float baseBrightness = 0.5;
 float maxBeatBrightness = 0.7;
 float maxPaletteTransitionBrightness = 1.0;
 float rampUp = 0.12; // percentage of pulse to get to maximum brightness
+float intraChordAttenuation = 0;
+float intraChordAttenuationMax = 0.50;
+float intraChordAttenuationRate = 0.10;
 double offsetProgressRate = 0.005;
 double beatTransitionRate = 0.04;
-double paletteTransitionRate = 0.08;
+double paletteTransitionRate = 0.20;
 double paletteFadeDownRate = 0.08;
 float activeTransHead;
 float activeTransIntensity;
@@ -92,16 +95,18 @@ void processCommands() {
     activeMode = 0.001;
     return;
   }
-  
+
   int newPalette = size % numPalettes;
 
   if( newPalette == thisPalette ) {
     lastBeatTransition = 0.0;
+    intraChordAttenuation = std::min(intraChordAttenuationRate + intraChordAttenuation, intraChordAttenuationMax);
   }
   else {
     lastPalette = thisPalette;
     thisPalette = newPalette % numPalettes;
     lastPaletteTransition = 0.0;
+    intraChordAttenuation = 0;
   }
 }
 
@@ -140,6 +145,8 @@ void setPalette(int paletteIdx, float offsetPct, float beatTransition, int prevP
     brightness = baseBrightness;
   }
 
+  brightness *= (1 - intraChordAttenuation);
+
 //  Serial.println(brightness);
 
 //  uint8_t white = std::min(255 * (brightness + 0.1),255.0);
@@ -158,17 +165,17 @@ void setPalette(int paletteIdx, float offsetPct, float beatTransition, int prevP
   int loc1, loc2;
   uint8_t r1,g1,b1,r2,g2,b2,r,g,b,r1Prev,g1Prev,b1Prev,r2Prev,g2Prev,b2Prev,rPrev,gPrev,bPrev;
   float interpPctGradient;
-  
+
   float kOffset;
   for( int k = 0; k < segmentSize; k++ ) {
     kOffset = fmod(k + offsetSlots,segmentSize);
-    
+
     loc1 = floor(kOffset / colorSpacing);
     loc2 = floor(kOffset / colorSpacing) + 1;
     r1 = palettes[paletteIdx][loc1 % paletteSize][0];
     g1 = palettes[paletteIdx][loc1 % paletteSize][1];
     b1 = palettes[paletteIdx][loc1 % paletteSize][2];
-    
+
     r2 = palettes[paletteIdx][loc2 % paletteSize][0];
     g2 = palettes[paletteIdx][loc2 % paletteSize][1];
     b2 = palettes[paletteIdx][loc2 % paletteSize][2];
@@ -196,7 +203,7 @@ void setPalette(int paletteIdx, float offsetPct, float beatTransition, int prevP
       r2Prev = palettes[prevPalette][loc2 % paletteSize][0];
       g2Prev = palettes[prevPalette][loc2 % paletteSize][1];
       b2Prev = palettes[prevPalette][loc2 % paletteSize][2];
-      
+
       rPrev = ((r2Prev - r1Prev)*interpPctGradient + r1Prev)*brightness;
       gPrev = ((g2Prev - g1Prev)*interpPctGradient + g1Prev)*brightness;
       bPrev = ((b2Prev - b1Prev)*interpPctGradient + b1Prev)*brightness;
@@ -210,21 +217,21 @@ void setPalette(int paletteIdx, float offsetPct, float beatTransition, int prevP
     if( activeMode < 1.0 ) {
       activeTransTrailLength = 20.0;
       activeTransHead = ( segmentSize + activeTransTrailLength ) * activeMode;
-    
+
       if( k > activeTransHead ) {
         r = 0;
         g = 0;
         b = 0;
       }
       else {
-        activeTransIntensity = std::max((20.0 - activeTransHead + k ) / 20.0,0.0);          
+        activeTransIntensity = std::max((20.0 - activeTransHead + k ) / 20.0,0.0);
 
         r = r+(255-r)*activeTransIntensity;
         g = g+(255-g)*activeTransIntensity;
         b = b+(255-b)*activeTransIntensity;
       }
     }
-    
+
     setRowColor(k,strip.Color(r,g,b));
   }
 }
@@ -244,26 +251,26 @@ void loop() {
   // read in commands
   if (Serial.available() > 0) {
     processCommands();
-  }  
+  }
 
   if( activeMode > 0 ) {
     setPalette(thisPalette,offset,lastBeatTransition,lastPalette,lastPaletteTransition,lastPaletteFadeDown);
     strip.show();
-  
+
     // increment offset, and progress through beat and palette transitions
     offset = fmod(offset + offsetProgressRate,1.0);
-  
+
     if ( lastBeatTransition < 1.0 ) {
       lastBeatTransition = std::min(lastBeatTransition + beatTransitionRate, 1.0 );
     }
-  
+
     if ( lastPaletteFadeDown < 1.0 ) {
-      lastPaletteFadeDown = std::min(lastPaletteFadeDown + paletteFadeDownRate, 1.0 ); 
+      lastPaletteFadeDown = std::min(lastPaletteFadeDown + paletteFadeDownRate, 1.0 );
     }
-  
+
     if ( lastPaletteTransition < 1.0 ) {
       lastPaletteTransition = std::min( lastPaletteTransition + paletteTransitionRate, 1.0 );
-  
+
       if( lastPaletteTransition == 1.0 ) {
         lastPaletteFadeDown = 0.0;
       }
@@ -274,7 +281,7 @@ void loop() {
     }
   }
   else {
-    // ambient mode  
+    // ambient mode
     ambientIntensity = cos((i % int(ambientModePulseCycle))/ambientModePulseCycle*2*PI)*0.5+0.5;
 
     for( int k = 0; k < segmentSize; k++ ) {
@@ -282,7 +289,7 @@ void loop() {
     }
     strip.show();
   }
-  
+
   i+=1;
   delay(1);
 }

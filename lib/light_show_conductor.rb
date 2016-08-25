@@ -3,17 +3,23 @@ class LightShowConductor
   include Celluloid::Notifications
   include Celluloid::Internals::Logger
 
+  finalizer :lights_to_low_mode
+
   def initialize
     set_port
+    lights_to_low_mode
     subscribe 'player:started', :on_player_started
     subscribe 'player:tick',    :on_player_tick
   end
 
   def play(song)
+    set_port if @port.is_a?(DummyPort) && Machine.pi?
     stop if playing?
     # Retry port if we're on the raspberry pi
-    set_port if @port.is_a?(DummyPort) && Machine.pi?
-    @show = LightShow.new_link(event_schedule_for(song.chords), palette, @port)
+    @show = LightShow.new_link(event_schedule_for(song.chords), @port)
+    lights_to_active_mode
+    sleep 0.75
+    yield if block_given?
   end
 
   def on_player_started(_)
@@ -24,17 +30,14 @@ class LightShowConductor
     @show.position = position if playing?
   end
 
-  def stop
+  def stop(transition = false)
     @show.terminate if has_show?
     @show = nil
+    lights_to_low_mode if transition
   end
 
   def has_show?
     @show && @show.alive?
-  end
-
-  def palette
-    %w(FA6900 69D2E7 E0E4CC FA5A46)
   end
 
   def playing?
@@ -76,6 +79,16 @@ class LightShowConductor
       warn 'Using dummy port'
       nil
     end
+  end
+
+  def lights_to_low_mode
+    info 'Setting lights to low mode'
+    @port.write('i')
+  end
+
+  def lights_to_active_mode
+    info 'Setting lights to active mode'
+    @port.write('a')
   end
 
   def event_schedule_for(events)
