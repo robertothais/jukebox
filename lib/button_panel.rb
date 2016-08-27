@@ -5,17 +5,18 @@ class ButtonPanel
 
   finalizer :cleanup
 
-  BUTTON_PINS_ROW = [4, 17, 27, 22]
+  BUTTON_PINS_ROW = [4, 17, 27, 22, 16]
   BUTTON_PINS_COL = [23, 24, 25]
 
-  LED_PINS_ROW = [ 5, 6, 7, 8]
+  LED_PINS_ROW = [ 5, 6, 7, 8, 26]
   LED_PINS_COL = [ 9, 10 ,11 ]
 
   BUTTONS = [
     [1, 2, 3 ],
     [4, 5, 6 ],
     [7, 8, 9 ],
-    [10,11,12]
+    [10,11,12],
+    [13,14,15]
   ]
 
   def initialize
@@ -94,9 +95,7 @@ class ButtonPanel
 
   def on_button_up(_, index)
     info "Button #{index} was pressed"
-    if index == 11
-      shuffle_pressed
-    elsif index == 12
+    if index == 14
       stop_pressed
     else
       song_button_pressed(index)
