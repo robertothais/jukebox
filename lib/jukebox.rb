@@ -41,6 +41,10 @@ class Jukebox
   def on_player_complete(e)
     # turn off all buttons
     info 'Playback complete'
+    if @button_panel
+      info 'Turning off all buttons'
+      @button_panel.all_off!
+    end
     stop
   end
 
